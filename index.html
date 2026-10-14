@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YOLO TXT 類別篩選工具 · V3 離線版</title>
+<style>
+:root{color-scheme:light;--ink:#162339;--muted:#63748a;--line:#dfe7ef;--blue:#185abd;--bg:#f4f7fb;--surface:#fff;--green:#096f52;--warn:#8b5210}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Microsoft JhengHei",sans-serif;font-size:15px}
+main{max-width:1000px;padding:28px 20px 70px;margin:auto}header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}h1{font-size:27px;letter-spacing:-.5px;margin:0 0 7px}h2{font-size:19px;margin:0 0 14px}p{margin:8px 0;line-height:1.7}.sub{color:var(--muted)}.tiny{font-size:13px}.pill{color:var(--green);background:#eaf9f2;border:1px solid #c2e7d7;border-radius:50px;padding:7px 12px;font-size:12px;white-space:nowrap}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:15px;margin:16px 0;padding:22px;box-shadow:0 3px 22px #20305008}.flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.gapTop{margin-top:17px}button,select{font:inherit}button{border:1px solid var(--blue);color:white;background:var(--blue);border-radius:9px;padding:11px 17px;cursor:pointer;font-weight:700}button.secondary{background:white;color:var(--ink);border-color:#c2cedd}button.danger{background:#a72d32;border-color:#a72d32}button:disabled{opacity:.48;cursor:not-allowed}button:hover:not(:disabled){filter:brightness(.96)}select{padding:9px;max-width:100%;border:1px solid #cad3df;border-radius:7px;background:#fff}
+.path{background:#f1f5fa;border:1px solid #e2e9f2;border-radius:9px;overflow-wrap:anywhere;padding:11px 13px;margin-top:13px;font-size:13px}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:17px 0}.stat{background:#f4f7fb;border-radius:11px;padding:14px}.stat strong{display:block;font-size:26px;font-variant-numeric:tabular-nums}.stat span{font-size:12px;color:var(--muted)}.classes{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}.labelCard{display:flex;gap:10px;align-items:flex-start;padding:13px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer}.labelCard:has(input:checked){background:#f0f6ff;border-color:#588de9}.labelCard input{height:18px;width:18px;margin:3px 0;accent-color:var(--blue)}.labelCard:has(input:disabled){opacity:.5;cursor:not-allowed}.subPanel{margin:20px 0 0;padding:17px;border:1px solid #dbe5f3;border-radius:12px;background:#f9fbfe}.subPanel h3{font-size:17px;margin:0 0 7px}.subPanel .radioList{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}.subPanel .radioList label{background:#fff}.labelName{font-weight:750;font-size:16px}.labelCount{color:var(--muted);font-size:13px;margin-top:5px}
+.box{padding:13px 15px;border-radius:9px;background:#eff6fe;border:1px solid #cae0fb;margin:15px 0;line-height:1.7;overflow-wrap:anywhere}.box.error{background:#fff2f0;border-color:#e9b8b6;color:#92211b}.box.success{background:#ecf9f2;border-color:#b4e2c8;color:#125b45}.box.warning{background:#fff8ed;border-color:#eed7b1;color:var(--warn)}.hidden{display:none!important}.radioList{display:grid;gap:10px;margin-top:14px}.radioList label{border:1px solid var(--line);padding:14px;border-radius:9px;cursor:pointer;line-height:1.6}.radioList label:has(input:checked){border-color:#6e9be0;background:#f2f7ff}.radioList input{accent-color:var(--blue);margin-right:8px}footer{text-align:center;color:var(--muted);font-size:12px;margin-top:28px}.footnote{font-size:13px;color:var(--muted)}@media(max-width:600px){main{padding:18px 12px 60px}.card{padding:17px}header{display:block}h1{font-size:24px}.pill{display:inline-block;margin-top:10px}.stats{gap:6px}.stat{padding:10px}.stat strong{font-size:21px}}
+</style>
+</head>
+<body>
+<main>
+<header><div><h1>YOLO TXT 類別篩選工具</h1><p class="sub">只處理 Darknet YOLO 標註文字檔，不需要圖片或影片。</p></div><span class="pill">● V3 離線版 · 不需安裝 Python</span></header>
+<div class="box hidden" id="message" role="status" aria-live="polite"></div>
+<section class="card">
+  <h2>1. 選擇 TXT 資料夾</h2>
+  <p class="sub tiny">直接雙擊此 HTML 即可使用。支援數百個 TXT 和子資料夾，也支援 Microsoft Edge / Chrome。</p>
+  <div class="flex gapTop">
+    <button id="choose">選擇整個資料夾</button>
+    <button class="secondary" id="compatible">相容模式：讀取資料夾</button>
+    <button class="secondary" id="rescan" disabled>重新掃描</button>
+  </div>
+  <input id="folderInput" type="file" webkitdirectory directory multiple hidden>
+  <div class="path hidden" id="folderInfo"></div>
+  <p id="capabilities" class="footnote">提示：選擇整個資料夾可在支援的瀏覽器直接修改原始 TXT；相容模式只會讀取檔案，結果用 ZIP 下載。</p>
+</section>
+<section class="card hidden" id="scanArea">
+  <h2>2. 選擇主要 Label（決定哪些 TXT 要留下）</h2>
+  <div class="flex"><label for="classSet" class="sub tiny">DarkLabel 類別設定：</label><select id="classSet"></select></div>
+  <p class="sub tiny">類別名稱依你提供的 darklabel.yml 內嵌設定顯示；切換類別組只會變更顯示名稱，不會改 TXT 內的 class ID。</p>
+  <div class="stats"><div class="stat"><strong id="fileCount">0</strong><span>TXT 影格數</span></div><div class="stat"><strong id="boxCount">0</strong><span>標註框總數</span></div><div class="stat"><strong id="typeCount">0</strong><span>出現的類別數</span></div></div>
+  <div id="classGrid" class="classes"></div>
+  <p class="sub tiny">「影格數」是包含這個 Label 的 TXT 數量；「框數」是此 Label 的標註行數。多選時只要出現任一主要 Label，該 TXT 就會留下。</p>
+  <div class="subPanel">
+    <h3>附帶保留其他 Label（選用）</h3>
+    <p class="sub tiny">這裡不會讓額外的 TXT 通過篩選；只控制<strong>已符合主要 Label 條件的 TXT</strong> 裡面，要額外留下哪些標註框。</p>
+    <div class="radioList">
+      <label><input type="radio" name="retention" value="main" checked><strong>只保留主要 Label</strong><div class="sub tiny">與上一版相同。</div></label>
+      <label><input type="radio" name="retention" value="extra"><strong>指定要附帶保留的 Label</strong><div class="sub tiny">例如主要 mod，再保留 person。</div></label>
+      <label><input type="radio" name="retention" value="all"><strong>保留所有其他 Label</strong><div class="sub tiny">符合條件的 TXT 內容完全保留。</div></label>
+    </div>
+    <div id="extraPicker" class="hidden" style="margin-top:16px">
+      <p class="sub tiny" style="margin-bottom:9px">請勾選「附帶保留」的其他類別（不會用來判定是否保留檔案）：</p>
+      <div id="extraGrid" class="classes"></div>
+    </div>
+  </div>
+  <div class="flex gapTop"><button id="preview">預覽篩選結果</button><button class="secondary" id="clear">清除勾選</button></div>
+</section>
+<section class="card hidden" id="previewArea">
+  <h2>3. 預覽後執行</h2>
+  <div class="stats"><div class="stat"><strong id="keptFiles">0</strong><span>會保留的 TXT</span></div><div class="stat"><strong id="removedFiles">0</strong><span>會排除的 TXT</span></div><div class="stat"><strong id="removedBoxes">0</strong><span>移除的標註行</span></div></div>
+  <p class="sub tiny" id="planText"></p>
+  <div class="radioList">
+   <label><input type="radio" name="mode" value="zip" checked><strong>安全模式：下載篩選結果 ZIP（推薦）</strong><div class="sub tiny" style="margin-left:25px">ZIP 只包含符合主要 Label 條件的 TXT，保留的標註行依上方「附帶保留」設定處理。原始檔不會改動。</div></label>
+   <label id="overwriteOption"><input type="radio" name="mode" value="overwrite"><strong>直接修改原始 TXT（自動備份）</strong><div class="sub tiny" style="margin-left:25px">僅適用「選擇整個資料夾」且瀏覽器支援寫入權限。先在來源資料夾建立備份子資料夾，再修改與刪除 TXT。</div></label>
+  </div>
+  <div id="warning" class="box warning hidden">注意：此模式會真正刪除沒有「主要 Label」的 TXT，並依附帶保留選項覆寫保留的 TXT。操作前會先在來源資料夾建立原始 TXT 備份。</div>
+  <div class="flex gapTop"><button id="execute">開始篩選</button></div>
+</section>
+<section class="card hidden" id="resultArea"><h2>篩選完成</h2><div id="resultMessage" class="box success"></div><div class="flex"><button id="again" class="secondary">處理其他資料夾</button></div></section>
+<footer>這份 HTML 在你的瀏覽器本機執行，無需伺服器，也不會將公司 TXT 上傳到雲端。</footer>
+</main>
+<script>
+'use strict';
+// Class sets are embedded from the supplied darklabel.yml; no network requests are used.
+const CLASS_SETS = {"total_classes1":["helmet","no-helmet","package","no-package","normal-behavior","using-phone","smoking","falling"],"coco_classes":["person","bicycle","car","motorcycle","airplane","bus","train","truck","boat","traffic light","fire hydrant","stop sign","parking meter","bench","bird","cat","dog","horse","sheep","cow","elephant","bear","zebra","giraffe","backpack","umbrella","handbag","tie","suitcase","frisbee","skis","snowboard","sports ball","kite","baseball bat","baseball glove","skateboard","surfboard","tennis racket","bottle","wine glass","cup","fork","knife","spoon","bowl","banana","apple","sandwich","orange","broccoli","carrot","hot dog","pizza","donut","cake","chair","couch","potted plant","bed","dining table","toilet","tv","laptop","mouse","remote","keyboard","cell phone","microwave","oven","toaster","sink","refrigerator","book","clock","vase","scissors","teddy bear","hair drier","toothbrush"],"voc_classes":["aeroplane","bicycle","bird","boat","bottle","bus","car","cat","chair","cow","diningtable","dog","horse","motorbike","person","pottedplant","sheep","sofa","train","tvmonitor"],"package_classes":["person","pack"],"0516_classes":["person","pack","helmet","no-helmet"],"0613_classes":["person","pack","helmet","no-helmet","mask"],"0613_classes_behave":["normal","phone","smoking"],"0705_classes_man_car":["person","car"],"0819_classes_wheel":["wheel"],"1017_classes_danger":["person","cigeratte","cellphone"],"ppe_classes_test":["person","pack","helmet","no-helmet","mask","need-mod"],"ppe_classes_4class":["person","pack","helmet","mask","mod"]};
+const DEFAULT_CLASS_SET = 'ppe_classes_4class';
+const $=id=>document.getElementById(id);
+const utf8=new TextEncoder();
+let source=null,records=[],report=null,plan=null,selected=[],extras=[];
+const fmt=n=>Number(n).toLocaleString('zh-TW');
+const show=(id,on=true)=>$(id).classList.toggle('hidden',!on);
+function message(msg,type='error'){const box=$('message');box.textContent=msg;box.className='box '+type;show('message',true);}
+function clearMessage(){show('message',false);}
+function setBusy(button,busy,label){if(busy){button.dataset.old=button.textContent;button.disabled=true;button.textContent=label||'處理中…';}else{button.textContent=button.dataset.old||button.textContent;button.disabled=false;}}
+function reset(){records=[];report=null;plan=null;selected=[];extras=[];show('scanArea',false);show('previewArea',false);show('resultArea',false);$('rescan').disabled=true;}
+function resetPlan(){plan=null;show('previewArea',false);show('resultArea',false);}
+function buildClassSelect(){for(const [name,list] of Object.entries(CLASS_SETS)){const option=document.createElement('option');option.value=name;option.textContent=`${name}（${list.length} 類）`;$('classSet').appendChild(option);}$('classSet').value=DEFAULT_CLASS_SET;}
+function className(id){const names=CLASS_SETS[$('classSet').value]||[];return names[id]||`未知類別 ID ${id}`;}
+const isGenerated=(name)=>/^_YOLO_(?:filtered|label_backup)_/i.test(name);
+function partsSafe(parts){return parts.length>0 && parts.every(p=>p && p!=='.' && p!=='..' && !/[\\/\0]/.test(p));}
+function decode(bytes){try{return new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{return new TextDecoder('big5').decode(bytes);}}
+function parseLabels(text,path){const rows=[];for(const [index,raw] of text.split(/\r?\n/).entries()){
+ const trimmed=raw.trim();if(!trimmed)continue;const p=trimmed.split(/\s+/);
+ if(p.length!==5 || !/^\d+$/.test(p[0]))throw Error(`${path} 第 ${index+1} 行不是 YOLO 五欄數值格式。`);
+ const nums=p.slice(1).map(Number);if(nums.some(x=>!Number.isFinite(x)))throw Error(`${path} 第 ${index+1} 行的座標不是有效數字。`);
+ const [cx,cy,w,h]=nums;const eps=1e-5;
+ if(cx<0 || cx>1 || cy<0 || cy>1 || w<=0 || w>1 || h<=0 || h>1 || cx-w/2 < -eps || cy-h/2 < -eps || cx+w/2>1+eps || cy+h/2>1+eps){throw Error(`${path} 第 ${index+1} 行的框超出影格或尺寸不合法。`)}
+ rows.push({id:Number(p[0]),line:trimmed});
+}return rows;}
+async function fromWebkitFiles(files){const inputs=[...files];const root=(inputs[0]?.webkitRelativePath||'資料夾').split('/')[0]||'資料夾';const output=[];
+ for(const file of inputs){if(!/\.txt$/i.test(file.name))continue;const raw=(file.webkitRelativePath||file.name).split('/');const parts=raw.length>1?raw.slice(1):raw;
+  if(!partsSafe(parts) || parts.some(isGenerated))continue;
+  const rawBytes=new Uint8Array(await file.arrayBuffer());const path=parts.join('/');output.push({path,parts,bytes:rawBytes,rows:parseLabels(decode(rawBytes),path),modified:file.lastModified});
+ }return {root,records:output};}
+async function fromDirectoryHandle(root){const files=[];
+ async function walk(dir,parts){for await(const [name,entry] of dir.entries()){
+  if(entry.kind==='directory'){if(!isGenerated(name))await walk(entry,[...parts,name]);}
+  else if(entry.kind==='file' && /\.txt$/i.test(name)){const p=[...parts,name];if(!partsSafe(p))continue;
+   const file=await entry.getFile();const data=new Uint8Array(await file.arrayBuffer());const path=p.join('/');
+   files.push({path,parts:p,bytes:data,rows:parseLabels(decode(data),path),modified:file.lastModified});
+  }
+ }}await walk(root,[]);return files;}
+function calculateReport(items){const frameCounts=new Map(),boxCounts=new Map();let boxes=0;
+ for(const item of items){boxes+=item.rows.length;const seen=new Set();for(const row of item.rows){boxCounts.set(row.id,(boxCounts.get(row.id)||0)+1);seen.add(row.id);}for(const id of seen)frameCounts.set(id,(frameCounts.get(id)||0)+1);}
+ const counts=[...boxCounts.keys()].sort((a,b)=>a-b).map(id=>({id,frames:frameCounts.get(id),boxes:boxCounts.get(id)}));return {files:items.length,boxes,counts};}
+function retentionMode(){return document.querySelector('[name=retention]:checked').value;}
+function syncExtraChoices(){const primary=new Set([...document.querySelectorAll('#classGrid input:checked')].map(i=>Number(i.value)));
+ document.querySelectorAll('#extraGrid input').forEach(input=>{input.disabled=primary.has(Number(input.value));if(input.disabled)input.checked=false;});resetPlan();}
+function renderReport(){report=calculateReport(records);$('fileCount').textContent=fmt(report.files);$('boxCount').textContent=fmt(report.boxes);$('typeCount').textContent=fmt(report.counts.length);
+ const grid=$('classGrid'),extraGrid=$('extraGrid');grid.replaceChildren();extraGrid.replaceChildren();
+ document.querySelector('[name=retention][value=main]').checked=true;show('extraPicker',false);
+ for(const c of report.counts){
+  for(const [target,isPrimary] of [[grid,true],[extraGrid,false]]){
+   const label=document.createElement('label');label.className='labelCard';const inp=document.createElement('input');inp.type='checkbox';inp.value=c.id;
+   inp.addEventListener('change',isPrimary?syncExtraChoices:resetPlan);
+   const info=document.createElement('div'),title=document.createElement('div'),detail=document.createElement('div');title.className='labelName';title.textContent=`${className(c.id)} (ID ${c.id})`;detail.className='labelCount';detail.textContent=`${fmt(c.frames)} 個影格 · ${fmt(c.boxes)} 個框`;info.append(title,detail);label.append(inp,info);target.appendChild(label);
+  }
+ }
+ if(!report.counts.length)grid.textContent='資料夾裡沒有可選的標註框。';
+ $('overwriteOption').style.display=source?.kind==='handle'?'':'none';if(source?.kind!=='handle')document.querySelector('[name=mode][value=zip]').checked=true;
+ show('scanArea',true);resetPlan();$('rescan').disabled=false;show('folderInfo',true);$('folderInfo').textContent=`目前選取：${source.name} · ${fmt(records.length)} 個 TXT · ${source.kind==='handle'?'可申請直接修改原始檔案':'唯讀相容模式'}`;
+ if(!records.length)message('選取的資料夾裡找不到 YOLO TXT。','warning');else clearMessage();}
+async function scanExisting(){if(!source)throw Error('請先選擇資料夾。');
+ if(source.kind==='handle'){records=await fromDirectoryHandle(source.handle);}else{records=await fromWebkitFiles(source.files).then(x=>x.records);}records.sort((a,b)=>a.path.localeCompare(b.path));renderReport();}
+async function useDirectoryPicker(){const btn=$('choose');setBusy(btn,true,'請選擇資料夾…');try{
+ if(!window.showDirectoryPicker){$('folderInput').click();message('目前瀏覽器無法直接修改本機資料夾，已切換至相容模式。仍可選取資料夾並下載篩選結果 ZIP。','warning');return;}
+ const handle=await window.showDirectoryPicker({id:'yolo-txt-labels',mode:'read'});const old=source;
+ try{const items=await fromDirectoryHandle(handle);source={kind:'handle',name:handle.name,handle};records=items.sort((a,b)=>a.path.localeCompare(b.path));renderReport();}
+ catch(err){source=old;throw err;}
+ }catch(err){if(err?.name!=='AbortError')message('選擇資料夾失敗：'+err.message+'。你也可以使用「相容模式：讀取資料夾」。');}finally{setBusy(btn,false);}}
+$('choose').addEventListener('click',useDirectoryPicker);
+$('compatible').addEventListener('click',()=>{$('folderInput').value='';$('folderInput').click();});
+$('folderInput').addEventListener('change',async e=>{const btn=$('compatible');if(!e.target.files?.length)return;setBusy(btn,true,'讀取中…');try{const files=[...e.target.files];const result=await fromWebkitFiles(files);source={kind:'files',name:result.root,files};records=result.records.sort((a,b)=>a.path.localeCompare(b.path));renderReport();}catch(err){message('讀取失敗：'+err.message);}finally{setBusy(btn,false);}});
+$('rescan').addEventListener('click',async()=>{const btn=$('rescan');setBusy(btn,true,'掃描中…');try{await scanExisting();}catch(err){message('重新掃描失敗：'+err.message);}finally{setBusy(btn,false);}});
+$('classSet').addEventListener('change',()=>{if(report)renderReport()});
+document.querySelectorAll('[name=retention]').forEach(input=>input.addEventListener('change',()=>{show('extraPicker',retentionMode()==='extra');resetPlan();}));
+$('clear').addEventListener('click',()=>{document.querySelectorAll('#classGrid input, #extraGrid input').forEach(input=>input.checked=false);document.querySelector('[name=retention][value=main]').checked=true;show('extraPicker',false);syncExtraChoices();});
+function makePlan(){
+ selected=[...document.querySelectorAll('#classGrid input:checked')].map(i=>Number(i.value));
+ if(!selected.length)throw Error('請至少選擇一個主要 Label，決定哪些 TXT 要留下。');
+ const mode=retentionMode();extras=mode==='extra'?[...document.querySelectorAll('#extraGrid input:checked')].map(i=>Number(i.value)):[];
+ if(mode==='extra' && !extras.length)throw Error('已選「指定要附帶保留的 Label」，請再勾選至少一個其他 Label。');
+ const primary=new Set(selected),retainedClasses=new Set([...selected,...extras]);
+ const keep=[],remove=[];let retained=0,removed=0;
+ for(const r of records){
+  // File matching must depend ONLY on primary labels; extra labels never admit a new file.
+  if(!r.rows.some(row=>primary.has(row.id))){remove.push(r);removed+=r.rows.length;continue;}
+  const lines=r.rows.filter(row=>mode==='all'||retainedClasses.has(row.id)).map(row=>row.line);
+  retained+=lines.length;removed+=r.rows.length-lines.length;keep.push({record:r,lines});
+ }
+ return {keep,remove,retained,removed,mode,selected:[...selected],extras:[...extras]};
+}
+$('preview').addEventListener('click',()=>{try{plan=makePlan();$('keptFiles').textContent=fmt(plan.keep.length);$('removedFiles').textContent=fmt(plan.remove.length);$('removedBoxes').textContent=fmt(plan.removed);
+ const mainNames=plan.selected.map(className).join('、');
+ const extraDescription=plan.mode==='all'?'符合條件的 TXT 內所有 Label 都保留':plan.mode==='extra'?`另外保留 ${plan.extras.map(className).join('、')}，其他標註行移除`:'只保留主要 Label 的標註行';
+ $('planText').textContent=`主要 Label：${mainNames}（決定保留哪些 TXT）；${extraDescription}；共留下 ${fmt(plan.retained)} 個框。`;
+ show('previewArea',true);show('resultArea',false);clearMessage();$('previewArea').scrollIntoView({behavior:'smooth',block:'start'});}catch(err){message(err.message);}});
+function radioMode(){return document.querySelector('[name=mode]:checked').value;}
+function updateMode(){show('warning',radioMode()==='overwrite');}
+document.querySelectorAll('[name=mode]').forEach(x=>x.addEventListener('change',updateMode));
+function fileTime(){const d=new Date(),pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;}
+// Creates a standards-compliant uncompressed ZIP, without external libraries or an internet request.
+const CRC_TABLE=(()=>{const arr=new Uint32Array(256);for(let n=0;n<256;n++){let x=n;for(let k=0;k<8;k++)x=x&1?0xedb88320^(x>>>1):x>>>1;arr[n]=x>>>0;}return arr;})();
+function crc32(data){let x=0xffffffff;for(const byte of data)x=CRC_TABLE[(x^byte)&255]^(x>>>8);return (x^0xffffffff)>>>0;}
+function write16(view,offset,value){view.setUint16(offset,value,true);}function write32(view,offset,value){view.setUint32(offset,value,true);}
+function makeZip(files){if(files.length>65535)throw Error('ZIP 包含檔案太多。');const chunks=[],centers=[];let offset=0,centralBytes=0;
+ for(const item of files){const name=utf8.encode(item.path);const content=item.bytes;const length=content.byteLength;if(length>0xffffffff || offset+length+name.length+76>0xffffffff)throw Error('檔案或 ZIP 太大。');
+ const checksum=crc32(content);const local=new Uint8Array(30+name.length),v=new DataView(local.buffer);
+ write32(v,0,0x04034b50);write16(v,4,20);write16(v,6,0x0800);write16(v,8,0);write32(v,14,checksum);write32(v,18,length);write32(v,22,length);write16(v,26,name.length);local.set(name,30);
+ const central=new Uint8Array(46+name.length),cv=new DataView(central.buffer);write32(cv,0,0x02014b50);write16(cv,4,20);write16(cv,6,20);write16(cv,8,0x0800);write16(cv,10,0);write32(cv,16,checksum);write32(cv,20,length);write32(cv,24,length);write16(cv,28,name.length);write32(cv,42,offset);central.set(name,46);
+ chunks.push(local,content);centers.push(central);centralBytes+=central.length;offset+=local.length+length;
+ }
+ const final=new Uint8Array(22),view=new DataView(final.buffer);write32(view,0,0x06054b50);write16(view,8,files.length);write16(view,10,files.length);write32(view,12,centralBytes);write32(view,16,offset);return new Blob([...chunks,...centers,final],{type:'application/zip'});
+}
+function zipItemsFromPlan(p){return p.keep.map(k=>({path:k.record.path,bytes:utf8.encode(k.lines.join('\n')+'\n')}));}
+function downloadZip(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+async function getChildDirectory(root,parts){let current=root;for(const p of parts)current=await current.getDirectoryHandle(p,{create:true});return current;}
+function sameBytes(a,b){if(a.byteLength!==b.byteLength)return false;for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;return true;}
+async function refreshBeforeOverwrite(){const recent=await fromDirectoryHandle(source.handle);if(recent.length!==records.length)throw Error('資料夾中的 TXT 數量已改變，請重新掃描、預覽。');const saved=new Map(records.map(r=>[r.path,r]));for(const item of recent){const old=saved.get(item.path);if(!old || !sameBytes(old.bytes,item.bytes))throw Error(`${item.path} 已被修改，請重新掃描、預覽。`);}}
+async function overwriteOriginals(p){if(source?.kind!=='handle')throw Error('請先使用「選擇整個資料夾」，才可修改原始 TXT。');
+ const root=source.handle;if(root.requestPermission){const granted=await root.requestPermission({mode:'readwrite'});if(granted!=='granted')throw Error('未取得資料夾寫入權限，原始檔沒有改動。');}
+ await refreshBeforeOverwrite();
+ const backupName='_YOLO_label_backup_'+fileTime()+'_'+Math.floor(Math.random()*9000+1000);
+ const backupDir=await root.getDirectoryHandle(backupName,{create:true});
+ for(const r of records){const dir=await getChildDirectory(backupDir,r.parts.slice(0,-1));const file=await dir.getFileHandle(r.parts.at(-1),{create:true});const w=await file.createWritable();await w.write(r.bytes);await w.close();}
+ // Confirm every source file has a byte-identical on-disk backup before destructive operations.
+ const backupList=await fromDirectoryHandleForVerification(backupDir);if(backupList.length!==records.length)throw Error('備份數量不正確；原始 TXT 未修改。');
+ const check=new Map(backupList.map(r=>[r.path,r.bytes]));for(const r of records){const b=check.get(r.path);if(!b||!sameBytes(r.bytes,b))throw Error('備份驗證失敗：'+r.path+'；原始 TXT 未修改。');}
+ for(const k of p.keep){const r=k.record;const dir=await getChildDirectory(root,r.parts.slice(0,-1));const file=await dir.getFileHandle(r.parts.at(-1));const w=await file.createWritable();await w.write(utf8.encode(k.lines.join('\n')+'\n'));await w.close();}
+ for(const r of p.remove){const dir=await getChildDirectory(root,r.parts.slice(0,-1));await dir.removeEntry(r.parts.at(-1));}
+ return backupName;
+}
+async function fromDirectoryHandleForVerification(root){const output=[];async function walk(dir,parts){for await(const [name,h] of dir.entries()){if(h.kind==='directory')await walk(h,[...parts,name]);else if(h.kind==='file' && /\.txt$/i.test(name)){const file=await h.getFile();output.push({path:[...parts,name].join('/'),bytes:new Uint8Array(await file.arrayBuffer())});}}}await walk(root,[]);return output;}
+$('execute').addEventListener('click',async()=>{if(!plan)return;const btn=$('execute'),mode=radioMode();if(mode==='overwrite'){
+ const text=`即將真的修改原始資料夾「${source?.name||''}」：\n\n刪除 ${plan.remove.length} 個不符合主要 Label 的 TXT，總共移除 ${plan.removed} 個標註行。\n\n程式會先備份全部原始 TXT 到資料夾內的 _YOLO_label_backup_... 子資料夾。\n\n確定繼續？`;
+ if(!confirm(text))return;}
+ setBusy(btn,true,'處理中…');try{if(mode==='zip'){
+ const blob=makeZip(zipItemsFromPlan(plan));const fileName=`${source.name}_YOLO_filtered_${fileTime()}.zip`;downloadZip(blob,fileName);
+ $('resultMessage').textContent=`篩選完成：已產生 ${fmt(plan.keep.length)} 個 TXT 的 ZIP「${fileName}」。原始資料完全沒有修改。`;}
+ else {const backup=await overwriteOriginals(plan);$('resultMessage').textContent=`已完成：保留 ${fmt(plan.keep.length)} 個 TXT，刪除 ${fmt(plan.remove.length)} 個 TXT。原始資料備份位置：${source.name}/${backup}（內含全部原始 TXT）。`;}
+ show('resultArea',true);show('previewArea',false);show('scanArea',false);clearMessage();$('resultArea').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(err){message('處理未完成：'+err.message+(mode==='overwrite'?'。如果處理過程中斷，請從備份資料夾還原。':''));}finally{setBusy(btn,false);}});
+$('again').addEventListener('click',()=>{reset();$('folderInfo').classList.add('hidden');window.scrollTo({top:0,behavior:'smooth'});});
+buildClassSelect();if(!window.showDirectoryPicker){$('capabilities').textContent='此瀏覽器未提供直接寫入資料夾的功能。請使用「相容模式：讀取資料夾」，仍可完整篩選並下載 ZIP。';}
+</script>
+</body>
+</html>
